@@ -1,0 +1,45 @@
+from dash import Dash, dcc, html, Input, Output
+import pandas as pd
+import plotly.express as px
+
+# Načtení dat
+url = 'https://raw.githubusercontent.com/petrrozkosny/pydata/main/pydata_data.csv'
+df = pd.read_csv(url, delimiter=';')
+df['DATE'] = pd.to_datetime(df['DATE'])
+df['YEAR'] = df['DATE'].dt.year
+df['MONTH'] = df['DATE'].dt.month
+
+# Aplikace Dash
+app = Dash(__name__)
+
+# Rozvržení aplikace
+app.layout = html.Div([
+    dcc.Dropdown(
+        id='year-filter',
+        options=[{'label': str(year), 'value': year} for year in df['YEAR'].unique()],
+        value=df['YEAR'].min(),  # Výchozí hodnota (nejstarší rok)
+        clearable=False,
+        style={'width': '50%'}
+    ),
+    dcc.Graph(id='line-graph')
+])
+
+# Callback pro aktualizaci grafu na základě filtru
+@app.callback(
+    Output('line-graph', 'figure'),
+    [Input('year-filter', 'value')]
+)
+def update_graph(selected_year):
+    filtered_df = df[df['YEAR'] == selected_year]
+    grouped_df = filtered_df.groupby(by='MONTH', as_index=False)['PRCP'].mean()
+    fig = px.line(grouped_df, x='MONTH', y='PRCP', title=f'Srážky v roce {selected_year}')
+    fig.update_layout(
+        dragmode='drawopenpath',  # Aktivuje kreslení volné čáry
+        newshape=dict(line_color='cyan'),  # Barva kreslení
+        modebar_add=['drawopenpath']  # Přidání kreslicího tlačítka
+    )
+    return fig
+
+# Spuštění aplikace
+if __name__ == '__main__':
+    app.run_server(debug=True)
